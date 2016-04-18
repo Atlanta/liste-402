@@ -1,4 +1,4 @@
-#include "List.h"
+#include "List.hpp"
 #include <iostream>
 #include <vector>
 
@@ -11,7 +11,6 @@
 using namespace std;
 
 int main(void) {
-	unsigned int i;
 	List<int> foo(3, 100);   // three ints with a value of 100
 	List<int> bar(5, 200);   // five ints with a value of 200
 
