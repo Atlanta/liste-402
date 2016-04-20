@@ -25,6 +25,20 @@
 
 using namespace std;
 
+template <typename T>
+struct sfinae_true : std::true_type {};
+
+struct is_iterator_tester {
+	template <typename T>
+	static sfinae_true<typename std::iterator_traits<T>::iterator_category> test(int);
+
+	template <typename>
+	static std::false_type test(...);
+};
+
+template <typename T>
+struct is_iterator : decltype(is_iterator_tester::test<T>(0)) {};
+
 template <class T>
 class List {
 public:
@@ -120,6 +134,14 @@ public:
 		reference operator*() { return reinterpret_cast<DataNode*>(node)->data; }
 	};
 
+	enum class enabler {};
+
+	template <typename Condition>
+	using EnableIf = typename std::enable_if<Condition::value, enabler>::type;
+
+	/* SFINAE */
+	
+
 	/* More typedefs... */
 	typedef ListIterator iterator;
 	typedef ConstListIterator const_iterator;
@@ -134,71 +156,375 @@ protected:
 
 public:
 	// Constructors
-	explicit List(); // Default
-	explicit List(size_type n);
-	List(size_type n, const value_type& val = value_type());
-	template <class InputIterator> List(InputIterator first, InputIterator last);
-	List(const List& x);
-	List(List&& x); // Move
-	List(std::initializer_list<value_type> il);
+	explicit List() : root(new Node()), elementCount(0) { DEBUG(cout << "Construct default" << endl;) }; // Default
+	explicit List(size_type n) : root(new Node()), elementCount(0) {
+		while (elementCount < n)
+			push_back(value_type());
+		DEBUG(cout << "Construct fill no value" << endl;)
+	};
+	List(size_type n, const value_type& val = value_type()) : root(new Node()), elementCount(0) {
+		while (elementCount < n)
+			push_back(val);
+		DEBUG(cout << "Construct fill" << endl;)
+	};
+	template <class InputIterator>
+	List(InputIterator first, InputIterator last, typename std::iterator_traits<InputIterator>::iterator_category* = nullptr) : root(new Node()), elementCount(0) {
+		insert(begin(), first, last);
+		DEBUG(cout << "Construct it" << endl;)
+	};
+	List(const List& x) : root(new Node()), elementCount(0) {
+		for (const_iterator it = x.cbegin(); it != x.cend(); it++) {
+			push_back(*it);
+		}
+		DEBUG(cout << "Construct copy" << endl;)
+	};
+	List(List&& x) : root(std::move(x.root)), elementCount(x.elementCount) {
+		x.root = nullptr;
+		x.elementCount = (size_type)0;
+		DEBUG(cout << "Construct move" << endl;)
+	};
+	List(std::initializer_list<value_type> il) : root(new Node()), elementCount(0) {
+		for (typename std::initializer_list<value_type>::iterator it = il.begin(); it != il.end(); it++) {
+			push_back(*it);
+		}
+		DEBUG(cout << "Construct initialiser listw" << endl;)
+	};
 
 	// Destructors
-	virtual ~List();
+	virtual ~List() {
+		clear();
+	};
 
 	// Overloading
-	List& operator=(const List& x);
-	List& operator=(List&& x);
-	List& operator=(std::initializer_list<value_type> il);
+	List& operator=(const List& x) {
+		if (this != &x) {
+			clear();
+
+			root = new Node();
+
+			for (const_iterator it = x.cbegin(); it != x.cend(); it++) {
+				push_back(*it);
+			}
+
+			elementCount = x.elementCount;
+		}
+		return *this;
+	};
+	List& operator=(List&& x) {
+		if (this != &x) {
+			DEBUG(cout << "Move assignement" << endl);
+
+			clear();
+
+			root = std::move(x.root);
+			elementCount = x.elementCount;
+			delete x.root;// = nullptr;
+		}
+		return *this;
+	};
+	List& operator=(std::initializer_list<value_type> il) {
+		clear();
+
+		root = new Node();
+
+		for (typename std::initializer_list<value_type>::iterator it = il.begin(); it != il.end(); it++) {
+			push_back(*it);
+		}
+
+		elementCount = il.size();
+
+		return *this;
+	};
 
 	// Iterators
-	iterator begin();
-	const_iterator begin() const;
-	reverse_iterator rbegin() noexcept;
+	iterator begin() {
+		return iterator(root->next);
+	};
+	const_iterator begin() const {
+		return const_iterator(root->next);
+	};
+	reverse_iterator rbegin() noexcept {
+		return reverse_iterator(root->previous);
+	};
 	//const_reverse_iterator rbegin() const noexcept;
-	iterator end();
+	iterator end() {
+		return iterator(root);
+	};
 	//const_iterator end() const;
-	reverse_iterator rend();
+	reverse_iterator rend() {
+		return reverse_iterator(this->begin());
+	};
 	//const_reverse_iterator rend() const;
-	const_iterator cbegin() const noexcept;
-	const_iterator cend() const noexcept;
-	const_reverse_iterator crbegin() const noexcept;
-	const_reverse_iterator crend() const noexcept;
+	const_iterator cbegin() const noexcept {
+		return const_iterator(root);
+	};
+	const_iterator cend() const noexcept {
+		Node* ptr = root;
+		for (size_type i = 0; i < elementCount; i++) ptr = ptr->next;
+		return const_iterator(ptr);
+	};
+	const_reverse_iterator crbegin() const noexcept {
+		return const_reverse_iterator();
+	};
+	const_reverse_iterator crend() const noexcept {
+		return const_reverse_iterator();
+	};
 
 	// Capacity
-	bool empty() const;
-	size_type size() const;
-	size_type max_size() const;
+	bool empty() const {
+		return (elementCount == 0) ? true : false;
+	};
+	size_type size() const {
+		return elementCount;
+	};
+	size_type max_size() const {
+		return std::numeric_limits<List<T>::size_type>::max();
+	};
 
 	// Element access
-	reference front();
-	const_reference front() const;
-	reference back();
-	const_reference back() const;
+	reference front() {
+		assert(elementCount>0);
+		return *this->begin();
+	};
+	const_reference front() const {
+		assert(elementCount>0);
+		return (const_reference)*this->cbegin();
+	};
+	reference back() {
+		assert(elementCount>0);
+		iterator it = end();
+		it--;
+		return (reference)*it;
+	};
+	const_reference back() const {
+		assert(elementCount>0);
+		const_iterator it = cend();
+		it--;
+		return (const_reference)*it;
+	};
 
 	// Modifiers
-	template <class InputIterator> void assign(InputIterator first, InputIterator last);
-	void assign(size_type n, const value_type& val);
-	void assign(std::initializer_list<value_type> il);
-	void push_front(const value_type& val);
-	void push_front(value_type&& val);
-	void pop_front();
-	void push_back(const value_type& val);
-	void push_back(value_type&& val);
-	void pop_back();
+	template <class InputIterator> void assign(InputIterator first, InputIterator last) {
+		clear();
+
+		Node* ptr = nullptr;
+		elementCount = (size_type)0;
+
+		for (InputIterator it = first; it != last; it++) {
+			if (it == first) {
+				this->root = new Node(*it);
+				ptr = this->root;
+				elementCount++;
+			}
+			else {
+				ptr->next = new Node(*it, ptr);
+				ptr = ptr->next;
+				elementCount++;
+			}
+		}
+	};
+	void assign(size_type n, const value_type& val) {
+	};
+	void assign(std::initializer_list<value_type> il) {
+	};
+	void push_front(const value_type& val) {
+		insert(begin(), val);
+	};
+	void push_front(value_type&& val) {
+		insert(begin(), std::move(val));
+	};
+	void pop_front() {
+		if (empty()) return;
+		else if (elementCount == 1) {
+			delete this->root;
+		}
+		else {
+			Node* tmp = this->root->next;
+			delete this->root;
+			this->root = tmp;
+			this->root->previous = nullptr;
+		}
+		elementCount--;
+	};
+	void push_back(const value_type& val) {
+		insert(end(), val);
+	};
+	void push_back(value_type&& val) {
+		insert(end(), std::move(val));
+	};
+	void pop_back() {
+		const_iterator it(end());
+		it--;
+		erase(it);
+	};
 	template <class... Args>
-	iterator emplace(const_iterator position, Args&&... args);
-	iterator insert(const_iterator position, const value_type& val);
-	iterator insert(const_iterator position, size_type n, const value_type& val);
+	iterator emplace(const_iterator position, Args&&... args) {
+		return iterator(insert(position, value_type(std::forward<Args>(args)...)));
+	};
+	iterator insert(const_iterator position, const value_type& val) {
+		DataNode* data_node = new DataNode(val); // pass data
+		Node* current = position.node;
+		data_node->next = current;
+		data_node->previous = current->previous;
+		current->previous->next = data_node;
+		current->previous = data_node;
+		elementCount++;
+		return iterator(data_node);
+	};
+	iterator insert(const_iterator position, size_type n, const value_type& val) {
+		for (size_type i = 0; i < n; i++) {
+			position = insert(position, val);
+		}
+		return iterator(position.node);
+	};
 	template<class InputIterator>
-	iterator insert(const_iterator position, InputIterator first, InputIterator last);
-	iterator insert(const_iterator position, value_type&& val);
-	iterator insert(const_iterator position, std::initializer_list<value_type> il);
-	iterator erase(const_iterator position);
-	iterator erase(const_iterator first, const_iterator last);
-	void swap(List& x);
-	void resize(size_type n);
-	void resize(size_type n, const value_type& val);
-	void clear() noexcept;
+	iterator insert(const_iterator position, InputIterator first, InputIterator last, typename std::iterator_traits<InputIterator>::iterator_category* = nullptr) {
+		while (first != last) {
+			insert(position, *first);
+			first++;
+		}
+		return iterator(position.node);
+	};
+	iterator insert(const_iterator position, value_type&& val) {
+		DataNode* data_node = new DataNode(std::move(val)); // pass data
+		Node* current = position.node;
+		data_node->next = current;
+		data_node->previous = current->previous;
+		current->previous->next = data_node;
+		current->previous = data_node;
+		elementCount++;
+		return iterator(current);
+	};
+	iterator insert(const_iterator position, std::initializer_list<value_type> il) {
+		iterator it;
+		for (typename std::initializer_list<value_type>::iterator ii = il.begin(); ii < il.end(); ii++)
+		{
+			it = this->insert(position, *ii);
+		}
+		for (size_type i = il.size(); i > 0; i--) it--;
+		elementCount++;
+		return it;
+	};
+	iterator erase(const_iterator position) {
+		assert(position != end());
+		Node *current = position.node, *tmp = position.node->next;
+		current->previous->next = current->next;
+		current->next->previous = current->previous;
+		delete current;
+		elementCount--;
+		return iterator(tmp);
+	};
+	iterator erase(const_iterator first, const_iterator last) {
+		while (first != last)
+			first = erase(first);
+		return iterator(first.node);
+	};
+	void swap(List& x) {
+		// TODO
+	};
+	void resize(size_type n) {
+		if (n < elementCount) {
+			while (elementCount > n)
+				pop_back();
+		}
+		else {
+			while (elementCount < n)
+				push_back(value_type());
+		}
+	};
+	void resize(size_type n, const value_type& val) {
+		if (n < elementCount) {
+			while (elementCount > n)
+				pop_back();
+		}
+		else {
+			while (elementCount < n)
+				push_back(val);
+		}
+	};
+	void clear() noexcept {
+		while (elementCount > 0)
+			pop_back();
+	};
+
+	/* Partie du fdp */
+	void merge(List &x) {
+		if (&x != this) {
+			iterator middle = end();
+			for (int i 0; i < elementCount / 2; i++) {
+				middle--;
+			}
+			std::inplace_merge(begin(), middle, end());
+		}
+	};
+	void merge(List &&x) {
+		if (&x != this) {
+			iterator middle = end();
+			for (int i = 0; i < elementCount / 2; i++) {
+				middle--;
+			}
+			std::inplace_merge(begin(), middle, end());
+		}
+	};
+	template <class Compare>
+	void merge(List &x, Compare comp) {
+		if (&x != this) {
+			iterator middle = end();
+			for (int i = 0; i < elementCount / 2; i++) {
+				middle--;
+			}
+			std::inplace_merge(begin(), middle, end(), comp);
+		}
+	};
+
+	template <class Compare>
+	void merge(List &&x, Compare comp) {
+		if (&x != this) {
+			iterator middle = end();
+			for (int i = 0; i < elementCount / 2; i++) {
+				middle--;
+			}
+			std::inplace_merge(begin(), middle, end(), comp);
+		}
+	};
+
+	// Tri à bulle
+	void sort() {
+		bool tri = true;
+		while (begin() != end() && swapped) {
+			tri = false;
+			for (iterator i = begin(); i != end(); i++) {
+				if (*i > *(i + 1)) {
+					swap(*i, *(i + 1));
+					tri = true;
+				}
+			}
+		}
+	};
+	template <class Compare>
+	void sort(Compare comp) {
+		bool tri = true;
+		while (begin() != end() && swapped) {
+			tri = false;
+			for (iterator i = begin(); i != end(); i++) {
+				if (comp(*i, *(i + 1))) {
+					swap(*i, *(i + 1));
+					tri = true;
+				}
+
+			}
+		}
+	};
+
+	void reverse() noexcept {
+		Node* n = root;
+		for (int i = 0; i = < size(); i++) {
+			Node* tmp = n->nextElement;
+			n->nextElement = n->previousElement;
+			n->previousElement = tmp;
+		}
+	};
 };
 
 #endif
+
