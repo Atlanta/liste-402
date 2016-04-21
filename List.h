@@ -23,21 +23,7 @@
 #include <vector>
 #include <numeric>
 
-using namespace std;
-
-template <typename T>
-struct sfinae_true : std::true_type {};
-
-struct is_iterator_tester {
-	template <typename T>
-	static sfinae_true<typename std::iterator_traits<T>::iterator_category> test(int);
-
-	template <typename>
-	static std::false_type test(...);
-};
-
-template <typename T>
-struct is_iterator : decltype(is_iterator_tester::test<T>(0)) {};
+//using namespace std;
 
 template <class T>
 class List {
@@ -109,8 +95,8 @@ public:
 		ConstListIterator(const ConstListIterator& lit) : node(lit.node) {};
 		virtual ~ConstListIterator() {};
 		ConstListIterator& operator++() {
-			node = node->next
-				; return *this;
+			node = node->next;
+			return *this;
 		};
 		ConstListIterator operator++(int) {
 			ConstListIterator tmp(*this);
@@ -134,14 +120,6 @@ public:
 		reference operator*() { return reinterpret_cast<DataNode*>(node)->data; }
 	};
 
-	enum class enabler {};
-
-	template <typename Condition>
-	using EnableIf = typename std::enable_if<Condition::value, enabler>::type;
-
-	/* SFINAE */
-	
-
 	/* More typedefs... */
 	typedef ListIterator iterator;
 	typedef ConstListIterator const_iterator;
@@ -156,38 +134,42 @@ protected:
 
 public:
 	// Constructors
-	explicit List() : root(new Node()), elementCount(0) { DEBUG(cout << "Construct default" << endl;) }; // Default
+	explicit List() : root(new Node()), elementCount(0) {
+		DEBUG(std::cout << "Construct default" << std::endl;) 
+	}
 	explicit List(size_type n) : root(new Node()), elementCount(0) {
 		while (elementCount < n)
 			push_back(value_type());
-		DEBUG(cout << "Construct fill no value" << endl;)
+		DEBUG(std::cout << "Construct fill no value" << std::endl;)
 	};
-	List(size_type n, const value_type& val = value_type()) : root(new Node()), elementCount(0) {
+	List(size_type n, const value_type& val) : root(new Node()), elementCount(0) {
 		while (elementCount < n)
 			push_back(val);
-		DEBUG(cout << "Construct fill" << endl;)
+		DEBUG(std::cout << "Construct fill" << std::endl;)
 	};
 	template <class InputIterator>
 	List(InputIterator first, InputIterator last, typename std::iterator_traits<InputIterator>::iterator_category* = nullptr) : root(new Node()), elementCount(0) {
 		insert(begin(), first, last);
-		DEBUG(cout << "Construct it" << endl;)
+		DEBUG(std::cout << "Construct it" << std::endl;)
 	};
 	List(const List& x) : root(new Node()), elementCount(0) {
 		for (const_iterator it = x.cbegin(); it != x.cend(); it++) {
 			push_back(*it);
 		}
-		DEBUG(cout << "Construct copy" << endl;)
+		DEBUG(std::cout << "Construct copy" << std::endl;)
 	};
-	List(List&& x) : root(std::move(x.root)), elementCount(x.elementCount) {
+	List(List&& x) : root(nullptr), elementCount(0) {
+		elementCount = x.elementCount;
+		root = std::move(x.root);
 		x.root = nullptr;
 		x.elementCount = (size_type)0;
-		DEBUG(cout << "Construct move" << endl;)
+		DEBUG(std::cout << "Construct move" << std::endl;)
 	};
 	List(std::initializer_list<value_type> il) : root(new Node()), elementCount(0) {
-		for (typename std::initializer_list<value_type>::iterator it = il.begin(); it != il.end(); it++) {
-			push_back(*it);
+		for (auto it : il) {
+			push_back(it);
 		}
-		DEBUG(cout << "Construct initialiser listw" << endl;)
+		DEBUG(std::cout << "Construct initialiser list" << std::endl;)
 	};
 
 	// Destructors
@@ -198,40 +180,36 @@ public:
 	// Overloading
 	List& operator=(const List& x) {
 		if (this != &x) {
+			DEBUG(std::cout << "Copy assignement" << std::endl;)
 			clear();
-
-			root = new Node();
 
 			for (const_iterator it = x.cbegin(); it != x.cend(); it++) {
 				push_back(*it);
 			}
-
-			elementCount = x.elementCount;
 		}
 		return *this;
 	};
 	List& operator=(List&& x) {
 		if (this != &x) {
-			DEBUG(cout << "Move assignement" << endl);
+			DEBUG(std::cout << "Move assignement" << std::endl;)
 
 			clear();
 
-			root = std::move(x.root);
 			elementCount = x.elementCount;
-			delete x.root;// = nullptr;
+			root = std::move(x.root);
+
+			x.root = nullptr;
+			x.elementCount = (size_type)0;
 		}
 		return *this;
 	};
 	List& operator=(std::initializer_list<value_type> il) {
+		DEBUG(std::cout << "Initializer list assignement" << std::endl;)
 		clear();
 
-		root = new Node();
-
-		for (typename std::initializer_list<value_type>::iterator it = il.begin(); it != il.end(); it++) {
-			push_back(*it);
+		for (auto it : il) {
+			push_back(it);
 		}
-
-		elementCount = il.size();
 
 		return *this;
 	};
@@ -246,28 +224,32 @@ public:
 	reverse_iterator rbegin() noexcept {
 		return reverse_iterator(root->previous);
 	};
-	//const_reverse_iterator rbegin() const noexcept;
+	const_reverse_iterator rbegin() const noexcept {
+		return const_reverse_iterator(root->previous);
+	};
 	iterator end() {
 		return iterator(root);
 	};
-	//const_iterator end() const;
-	reverse_iterator rend() {
-		return reverse_iterator(this->begin());
-	};
-	//const_reverse_iterator rend() const;
-	const_iterator cbegin() const noexcept {
+	const_iterator end() const {
 		return const_iterator(root);
 	};
+	reverse_iterator rend() {
+		return reverse_iterator(begin());
+	};
+	const_reverse_iterator rend() const {
+		return const_reverse_iterator(begin());
+	};;
+	const_iterator cbegin() const noexcept {
+		return const_iterator(root->next);
+	};
 	const_iterator cend() const noexcept {
-		Node* ptr = root;
-		for (size_type i = 0; i < elementCount; i++) ptr = ptr->next;
-		return const_iterator(ptr);
+		return const_iterator(root);
 	};
 	const_reverse_iterator crbegin() const noexcept {
-		return const_reverse_iterator();
+		return const_reverse_iterator(root->previous);
 	};
 	const_reverse_iterator crend() const noexcept {
-		return const_reverse_iterator();
+		return const_reverse_iterator(cbegin());
 	};
 
 	// Capacity
@@ -283,50 +265,53 @@ public:
 
 	// Element access
 	reference front() {
-		assert(elementCount>0);
+		assert(elementCount > 0);
 		return *this->begin();
 	};
 	const_reference front() const {
-		assert(elementCount>0);
+		assert(elementCount > 0);
 		return (const_reference)*this->cbegin();
 	};
 	reference back() {
-		assert(elementCount>0);
+		assert(elementCount > 0);
 		iterator it = end();
 		it--;
 		return (reference)*it;
 	};
 	const_reference back() const {
-		assert(elementCount>0);
+		assert(elementCount > 0);
 		const_iterator it = cend();
 		it--;
 		return (const_reference)*it;
 	};
 
 	// Modifiers
-	template <class InputIterator> void assign(InputIterator first, InputIterator last) {
+	template <class InputIterator> 
+	void assign(InputIterator first, InputIterator last, typename std::iterator_traits<InputIterator>::iterator_category* = nullptr) {
 		clear();
 
-		Node* ptr = nullptr;
-		elementCount = (size_type)0;
-
-		for (InputIterator it = first; it != last; it++) {
-			if (it == first) {
-				this->root = new Node(*it);
-				ptr = this->root;
-				elementCount++;
-			}
-			else {
-				ptr->next = new Node(*it, ptr);
-				ptr = ptr->next;
-				elementCount++;
-			}
+		while (first != last) {
+			push_back(*first);
+			first++;
 		}
 	};
 	void assign(size_type n, const value_type& val) {
+		clear();
+
+		for (size_type i = 0; i < n; i++) {
+			push_back(val);
+		}
 	};
 	void assign(std::initializer_list<value_type> il) {
+		clear();
+
+		for(auto i : il)
+			push_back(i);
 	};
+	template <class... Args>
+	void emplace_front(Args&&... args) {
+		insert(begin(), value_type(std::forward<Args>(args)...));
+	}
 	void push_front(const value_type& val) {
 		insert(begin(), val);
 	};
@@ -334,18 +319,13 @@ public:
 		insert(begin(), std::move(val));
 	};
 	void pop_front() {
-		if (empty()) return;
-		else if (elementCount == 1) {
-			delete this->root;
-		}
-		else {
-			Node* tmp = this->root->next;
-			delete this->root;
-			this->root = tmp;
-			this->root->previous = nullptr;
-		}
-		elementCount--;
+		const_iterator it(cbegin());
+		erase(it);
 	};
+	template <class... Args>
+	void emplace_back(Args&&... args) {
+		insert(end(), value_type(std::forward<Args>(args)...));
+	}
 	void push_back(const value_type& val) {
 		insert(end(), val);
 	};
@@ -353,9 +333,8 @@ public:
 		insert(end(), std::move(val));
 	};
 	void pop_back() {
-		const_iterator it(end());
-		it--;
-		erase(it);
+		const_iterator it(cend());
+		erase(--it);
 	};
 	template <class... Args>
 	iterator emplace(const_iterator position, Args&&... args) {
@@ -396,14 +375,9 @@ public:
 		return iterator(current);
 	};
 	iterator insert(const_iterator position, std::initializer_list<value_type> il) {
-		iterator it;
-		for (typename std::initializer_list<value_type>::iterator ii = il.begin(); ii < il.end(); ii++)
-		{
-			it = this->insert(position, *ii);
-		}
-		for (size_type i = il.size(); i > 0; i--) it--;
-		elementCount++;
-		return it;
+		for (auto it : il)
+			insert(position, it);
+		return iterator(position.node);
 	};
 	iterator erase(const_iterator position) {
 		assert(position != end());
@@ -420,7 +394,8 @@ public:
 		return iterator(first.node);
 	};
 	void swap(List& x) {
-		// TODO
+		// TODO à vérifier mais normalement c'est bon
+		std::swap(*this, x);
 	};
 	void resize(size_type n) {
 		if (n < elementCount) {
@@ -447,7 +422,7 @@ public:
 			pop_back();
 	};
 
-	/* Partie du fdp */
+	// Operations
 	void merge(List &x) {
 		if (&x != this) {
 			iterator middle = end();
@@ -488,10 +463,9 @@ public:
 		}
 	};
 
-	// Tri à bulle
-	void sort() {
+	void sort() {	// Tri à bulle
 		bool tri = true;
-		while (begin() != end() && swapped) {
+		while (begin() != end() && std::swapped()) {
 			tri = false;
 			for (iterator i = begin(); i != end(); i++) {
 				if (*i > *(i + 1)) {
@@ -524,6 +498,55 @@ public:
 			n->previousElement = tmp;
 		}
 	};
+
+};
+
+// Relational operators
+#pragma region Relational operators
+
+template <class T>
+bool operator== (const List<T>& lhs, const List<T>& rhs) {
+	if (lhs.size() == rhs.size()) {
+		if (lhs.size() == 0) return true;
+
+		List<T>::const_iterator itl = lhs.begin(), itr = rhs.begin();
+
+		while (itl != lhs.end()) {
+			if (*itl != *itr) return false;
+			itl++; itr++;
+		}
+		return true;
+	}
+	return false;
+};
+template <class T>
+bool operator!= (const List<T>& lhs, const List<T>& rhs) {
+	return !(lhs == rhs);
+};
+template <class T>
+bool operator< (const List<T>& lhs, const List<T>& rhs) {
+	return std::lexicographical_compare(lhs.begin(), lhs.end(),rhs.begin(), rhs.end());
+};
+template <class T>
+bool operator<= (const List<T>& lhs, const List<T>& rhs) {
+	return !(rhs < lhs);
+};
+template <class T>
+bool operator> (const List<T>& lhs, const List<T>& rhs) {
+	return rhs < lhs;
+}
+template <class T>
+bool operator>= (const List<T>& lhs, const List<T>& rhs) {
+	return !(lhs < rhs);
+};
+
+#pragma endregion Opérateurs relationnels
+
+template <class T>
+void swap(List<T>& x, List<T>& y) {
+	List<T> z(std::move(x));
+	x = std::move(y);
+	y = std::move(z);
 };
 
 #endif

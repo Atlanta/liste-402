@@ -11,20 +11,20 @@
 using namespace std;
 
 int main(void) {
-	// constructors used in the same order as described above:
-	List<int> first;                                // empty list of ints
-	List<int> second(4, 100);                       // four ints with value 100
-	List<int> third(second.begin(), second.end());  // iterating through second
-	List<int> fourth(third);                       // a copy of third
+	unsigned int i;
+	List<int> foo(3, 100);   // three ints with a value of 100
+	List<int> bar(5, 200);   // five ints with a value of 200
 
-														// the iterator constructor can also be used to construct from arrays:
-	int myints[] = { 16,2,77,29 };
-	List<int> fifth(myints, myints + sizeof(myints) / sizeof(int));
+	bar.swap(foo);
 
-	std::cout << "The contents of fifth are: ";
-	for (List<int>::iterator it = fifth.begin(); it != fifth.end(); it++)
-		std::cout << *it << ' ';
+	std::cout << "foo contains:";
+	for (List<int>::iterator it = foo.begin(); it != foo.end(); ++it)
+		std::cout << ' ' << *it;
+	std::cout << '\n';
 
+	std::cout << "bar contains:";
+	for (List<int>::iterator it = bar.begin(); it != bar.end(); ++it)
+		std::cout << ' ' << *it;
 	std::cout << '\n';
 
 	DEBUG(system("pause");)
