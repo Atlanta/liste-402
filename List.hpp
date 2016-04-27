@@ -1,10 +1,10 @@
-//
-//  list.h
-//  Projet INFO0402
-//
-//  Created by Julien Hubert on 24/03/2016.
-//  Copyright ? 2016 Julien Hubert. All rights reserved.
-//
+/**
+ * List.hpp
+ * Projet 2016 INFO0402
+ *
+ * ANIC-ANTIC Raphaël
+ * HUBERT Julien
+**/
 #pragma once
 
 #ifndef __LIST_H__
@@ -23,8 +23,6 @@
 #include <iterator>
 #include <vector>
 #include <numeric>
-
-//using namespace std;
 
 template <class T>
 class List {
@@ -381,7 +379,7 @@ public:
 		return iterator(position.node);
 	};
 	iterator erase(const_iterator position) {
-		assert(position != end());
+		assert(position != cend());
 		Node *current = position.node, *tmp = position.node->next;
 		current->previous->next = current->next;
 		current->next->previous = current->previous;
@@ -395,7 +393,6 @@ public:
 		return iterator(first.node);
 	};
 	void swap(List& x) {
-		// TODO ï¿½ vï¿½rifier mais normalement c'est bon
 		std::swap(*this, x);
 	};
 	void resize(size_type n) {
@@ -424,83 +421,236 @@ public:
 	};
 
 	// Operations
-	/*void merge(List &x) {
-		if (&x != this) {
-			iterator middle = end();
-			for (int i 0; i < elementCount / 2; i++) {
-				middle--;
-			}
-			std::inplace_merge(begin(), middle, end());
+	void splice(const_iterator position, List& x) {
+		const_iterator first = x.begin(), last = x.end();
+		while (first != last) {
+			/* On garde la position dans x car first va être invalidé */
+			const_iterator tmp = first;
+			tmp++;
+			splice(position, x, first);
+			first = tmp;
 		}
 	};
-	void merge(List &&x) {
-		if (&x != this) {
-			iterator middle = end();
-			for (int i = 0; i < elementCount / 2; i++) {
-				middle--;
-			}
-			std::inplace_merge(begin(), middle, end());
+	void splice(const_iterator position, List& x, const_iterator i) {
+		// x
+		i.node->previous->next = i.node->next;
+		i.node->next->previous = i.node->previous;
+
+		// this
+		position.node->previous->next = i.node;
+		i.node->previous = position.node->previous;
+		position.node->previous = i.node;
+		i.node->next = position.node;
+
+		elementCount++;
+		x.elementCount--;
+	};
+	void splice(const_iterator position, List& x, const_iterator first, const_iterator last) {
+		while (first != last) {
+			/* On garde la position dans x car first va être invalidé */
+			const_iterator tmp = first;
+			tmp++;
+			splice(position, x, first);
+			first = tmp;
 		}
+	};
+
+	void remove(const_reference val)
+	{
+		for (iterator it = begin(); it != end(); ++it)
+		{
+			if (*it == val) {
+				it = erase(it);
+				--it;
+			}
+		}
+	};
+
+	template <class Predicate>
+	void remove_if(Predicate pred)
+	{
+		for (iterator it = begin(); it != end(); ++it)
+		{
+			if (pred(*it))
+			{
+				it = erase(it);
+				--it;
+			}
+		}
+	};
+
+	void unique() {
+		iterator previous;
+		for (iterator it = begin(); it != end(); ++it) {
+			if (it != begin()) {
+				previous = it;
+				previous--;
+				if (*it == *previous) {
+					it = erase(it);
+					--it;
+				}
+			}
+		}
+		DEBUG(std::cout << "Unique applicated : "; for (iterator it = begin(); it != end(); it++) std::cout << *it << " "; std::cout << std::endl;)
+	};
+	template <class BinaryPredicate>
+	void unique(BinaryPredicate binary_pred)
+	{
+		iterator previous;
+		for (iterator it = begin(); it != end(); ++it) {
+			if (it != begin()) {
+				previous = it;
+				previous--;
+				if (binary_pred(*it, *previous)) {
+					it = erase(it);
+					--it;
+				}
+			}
+		}
+		DEBUG(std::cout << "Unique (with BinaryPredicate) applicated : "; for (iterator it = begin(); it != end(); it++) std::cout << *it << " "; std::cout << std::endl;)
+	};
+
+	void merge(List &x) {
+		if (&x != this) {
+			Node* actual = root->next;
+			while (x.elementCount > 0) {
+				Node* firstX = x.root->next;
+
+				if (actual == root || reinterpret_cast<DataNode*>(firstX)->data < reinterpret_cast<DataNode*>(actual)->data) {
+					firstX->previous->next = firstX->next;
+					firstX->next->previous = firstX->previous;
+
+					actual->previous->next = firstX;
+
+					firstX->previous = actual->previous;
+					firstX->next = actual;
+
+					actual->previous = firstX;
+
+					x.elementCount--;
+					elementCount++;
+				}
+				else {
+					actual = actual->next;
+				}
+			}
+		}
+
+		DEBUG(std::cout << "List merged : "; for (iterator it = begin(); it != end(); it++) std::cout << *it << " "; std::cout << std::endl);
 	};
 	template <class Compare>
 	void merge(List &x, Compare comp) {
 		if (&x != this) {
-			iterator middle = end();
-			for (int i = 0; i < elementCount / 2; i++) {
-				middle--;
-			}
-			std::inplace_merge(begin(), middle, end(), comp);
-		}
-	};
+			/* On part du premier élément de this */
+			Node* actual = root->next;
+			// Tant que x n'est pas vide
+			while (x.elementCount > 0) {
+				/* On prend toujours le premier élement de x, qui va changer au fur et à mesure*/
+				Node* firstX = x.root->next;
 
-	template <class Compare>
-	void merge(List &&x, Compare comp) {
-		if (&x != this) {
-			iterator middle = end();
-			for (int i = 0; i < elementCount / 2; i++) {
-				middle--;
-			}
-			std::inplace_merge(begin(), middle, end(), comp);
-		}
-	};
+				/* Si on est à la fin, on insère avant la fin sans besoin de comparer */
+				/* Si on est pas à la fin, on vérifie si x est inférieur à la valeur actuelle, si oui on l'insère avant */
+				if (actual == root || comp(reinterpret_cast<DataNode*>(firstX)->data, reinterpret_cast<DataNode*>(actual)->data)) {
+					firstX->previous->next = firstX->next;
+					firstX->next->previous = firstX->previous;
 
-	void sort() {	// Tri ï¿½ bulle
-		bool tri = true;
-		while (begin() != end() && std::swapped()) {
-			tri = false;
-			for (iterator i = begin(); i != end(); i++) {
-				if (*i > *(i + 1)) {
-					swap(*i, *(i + 1));
-					tri = true;
+					actual->previous->next = firstX;
+
+					firstX->previous = actual->previous;
+					firstX->next = actual;
+
+					actual->previous = firstX;
+
+					x.elementCount--;
+					elementCount++;
+				}
+				/* Sinon on avance */
+				else {
+					actual = actual->next;
 				}
 			}
 		}
+
+		DEBUG(std::cout << "List merged (with comparator) : "; for (iterator it = begin(); it != end(); it++) std::cout << *it << " "; std::cout << std::endl);
 	};
+
+	void sort()
+	{
+		// Tri à bulles
+		for (size_type i = size() - 1; i > 0; i--) {
+			Node* actual = root->next;
+			bool sorted = true;
+			for (size_type j = 0; j < i; j++) {
+				Node* nextElement = actual->next;
+
+				if (reinterpret_cast<DataNode*>(nextElement)->data < reinterpret_cast<DataNode*>(actual)->data) {
+					// Swap
+					Node* pTmp = actual->previous;
+					Node* nTmp = nextElement->next;
+
+					actual->previous->next = nextElement;
+					nextElement->next->previous = actual;
+
+					actual->previous = nextElement;
+					actual->next = nTmp;
+
+					nextElement->previous = pTmp;
+					nextElement->next = actual;
+					sorted = false;
+				}
+				else
+					actual = actual->next;
+			}
+			if (sorted) break;
+		}
+
+		DEBUG(std::cout << "List sorted : "; for (iterator it = begin(); it != end(); it++) std::cout << *it << " "; std::cout << std::endl);
+	}
 	template <class Compare>
 	void sort(Compare comp) {
-		bool tri = true;
-		while (begin() != end() && swapped) {
-			tri = false;
-			for (iterator i = begin(); i != end(); i++) {
-				if (comp(*i, *(i + 1))) {
-					swap(*i, *(i + 1));
-					tri = true;
-				}
+		// Tri à bulles
+		for (size_type i = size() - 1; i > 0; i--) {
+			Node* actual = root->next;
+			bool sorted = true;
+			for (size_type j = 0; j < i; j++) {
+				Node* nextElement = actual->next;
 
+				if (comp(reinterpret_cast<DataNode*>(nextElement)->data, reinterpret_cast<DataNode*>(actual)->data)) {
+					// Swap
+					Node* pTmp = actual->previous;
+					Node* nTmp = nextElement->next;
+
+					actual->previous->next = nextElement;
+					nextElement->next->previous = actual;
+
+					actual->previous = nextElement;
+					actual->next = nTmp;
+
+					nextElement->previous = pTmp;
+					nextElement->next = actual;
+					sorted = false;
+				}
+				else
+					actual = actual->next;
 			}
+			if (sorted) return;
 		}
+
+		DEBUG(std::cout << "List sorted (with Comparator) : "; for (iterator it = begin(); it != end(); it++) std::cout << *it << " "; std::cout << std::endl);
 	};
+
 
 	void reverse() noexcept {
 		Node* n = root;
-		for (int i = 0; i = < size(); i++) {
-			Node* tmp = n->nextElement;
-			n->nextElement = n->previousElement;
-			n->previousElement = tmp;
-		}
-	};
-*/
+		Node* tmp;
+		for (int i = 0; i <= size(); i++) {
+			tmp = n->next;
+			n->next = n->previous;
+			n->previous = tmp;
 
+			n = n->next;
+		}
+	}
 };
 
 // Relational operators
