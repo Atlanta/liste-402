@@ -2,11 +2,9 @@
  * List.hpp
  * Projet 2016 INFO0402
  *
- * ANIC-ANTIC Raphaël
+ * ANIC-ANTIC Raphaï¿½l
  * HUBERT Julien
 **/
-#pragma once
-
 #ifndef __LIST_H__
 #define __LIST_H__
 
@@ -23,6 +21,7 @@
 #include <iterator>
 #include <vector>
 #include <numeric>
+#include <list>
 
 template <class T>
 class List {
@@ -221,10 +220,10 @@ public:
 		return const_iterator(root->next);
 	};
 	reverse_iterator rbegin() noexcept {
-		return reverse_iterator(root->previous);
+		return reverse_iterator(root);
 	};
 	const_reverse_iterator rbegin() const noexcept {
-		return const_reverse_iterator(root->previous);
+		return const_reverse_iterator(root);
 	};
 	iterator end() {
 		return iterator(root);
@@ -245,7 +244,7 @@ public:
 		return const_iterator(root);
 	};
 	const_reverse_iterator crbegin() const noexcept {
-		return const_reverse_iterator(root->previous);
+		return const_reverse_iterator(root);
 	};
 	const_reverse_iterator crend() const noexcept {
 		return const_reverse_iterator(cbegin());
@@ -424,7 +423,7 @@ public:
 	void splice(const_iterator position, List& x) {
 		const_iterator first = x.begin(), last = x.end();
 		while (first != last) {
-			/* On garde la position dans x car first va être invalidé */
+			/* On garde la position dans x car first va ï¿½tre invalidï¿½ */
 			const_iterator tmp = first;
 			tmp++;
 			splice(position, x, first);
@@ -447,7 +446,7 @@ public:
 	};
 	void splice(const_iterator position, List& x, const_iterator first, const_iterator last) {
 		while (first != last) {
-			/* On garde la position dans x car first va être invalidé */
+			/* On garde la position dans x car first va ï¿½tre invalidï¿½ */
 			const_iterator tmp = first;
 			tmp++;
 			splice(position, x, first);
@@ -541,15 +540,15 @@ public:
 	template <class Compare>
 	void merge(List &x, Compare comp) {
 		if (&x != this) {
-			/* On part du premier élément de this */
+			/* On part du premier ï¿½lï¿½ment de this */
 			Node* actual = root->next;
 			// Tant que x n'est pas vide
 			while (x.elementCount > 0) {
-				/* On prend toujours le premier élement de x, qui va changer au fur et à mesure*/
+				/* On prend toujours le premier ï¿½lement de x, qui va changer au fur et ï¿½ mesure*/
 				Node* firstX = x.root->next;
 
-				/* Si on est à la fin, on insère avant la fin sans besoin de comparer */
-				/* Si on est pas à la fin, on vérifie si x est inférieur à la valeur actuelle, si oui on l'insère avant */
+				/* Si on est ï¿½ la fin, on insï¿½re avant la fin sans besoin de comparer */
+				/* Si on est pas ï¿½ la fin, on vï¿½rifie si x est infï¿½rieur ï¿½ la valeur actuelle, si oui on l'insï¿½re avant */
 				if (actual == root || comp(reinterpret_cast<DataNode*>(firstX)->data, reinterpret_cast<DataNode*>(actual)->data)) {
 					firstX->previous->next = firstX->next;
 					firstX->next->previous = firstX->previous;
@@ -576,7 +575,7 @@ public:
 
 	void sort()
 	{
-		// Tri à bulles
+		// Tri ï¿½ bulles
 		for (size_type i = size() - 1; i > 0; i--) {
 			Node* actual = root->next;
 			bool sorted = true;
@@ -608,7 +607,7 @@ public:
 	}
 	template <class Compare>
 	void sort(Compare comp) {
-		// Tri à bulles
+		// Tri ï¿½ bulles
 		for (size_type i = size() - 1; i > 0; i--) {
 			Node* actual = root->next;
 			bool sorted = true;
@@ -661,6 +660,22 @@ bool operator== (const List<T>& lhs, const List<T>& rhs) {
 		if (lhs.size() == 0) return true;
 
 		typename List<T>::const_iterator itl = lhs.begin(), itr = rhs.begin();
+
+		while (itl != lhs.end()) {
+			if (*itl != *itr) return false;
+			itl++; itr++;
+		}
+		return true;
+	}
+	return false;
+};
+template <class T>
+bool operator== (const List<T>& lhs, const std::list<T>& rhs) {
+	if (lhs.size() == rhs.size()) {
+		if (lhs.size() == 0) return true;
+
+		typename List<T>::const_iterator itl = lhs.begin();
+		typename std::list<T>::const_iterator itr = rhs.begin();
 
 		while (itl != lhs.end()) {
 			if (*itl != *itr) return false;
