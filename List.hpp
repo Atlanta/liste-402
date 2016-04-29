@@ -136,8 +136,16 @@ public:
 		DEBUG(std::cout << "Construct default" << std::endl;)
 	}
 	explicit List(size_type n) : root(new Node()), elementCount(0) {
-		while (elementCount < n)
-			push_back(value_type());
+		Node* actual = root;
+		while (elementCount < n) {
+			actual->next = new DataNode();
+			root->previous = actual->next;
+			actual->next->previous = actual;
+			actual = actual->next;
+			actual->next = root;
+			elementCount++;
+		}
+		//push_back(value_type());
 		DEBUG(std::cout << "Construct fill no value" << std::endl;)
 	};
 	List(size_type n, const value_type& val) : root(new Node()), elementCount(0) {

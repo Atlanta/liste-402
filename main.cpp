@@ -2,6 +2,7 @@
 #include "catch.hpp"
 
 #include "List.hpp"
+#include "counter.hpp"
 
 /**
  * Tests des fonctions et des surcharges de List.hpp
@@ -41,6 +42,29 @@ TEST_CASE("Constructors", "[List]") {
 
 	REQUIRE(fifth.size() == 4);
 	REQUIRE(fifth == List<int>({16,2,77,29}));
+
+	List<Counter>* defaut = new List<Counter>(8);
+	delete defaut;
+
+	REQUIRE(construct == 8);
+	REQUIRE(destruct == 8);
+
+	construct = 0;
+	copy_construct = 0;
+	destruct = 0;
+
+	Counter* c1 = new Counter;	// On en construit 1
+	List<Counter>* copy = new List<Counter>(8, *c1); // Copié 8 fois
+	delete copy; // 8 destructions
+	delete c1;	// 9 destructions
+
+	REQUIRE(construct == 1);
+	REQUIRE(copy_construct == 8);
+	REQUIRE(destruct == 9);
+
+	/* Le déplacement n'est pas utilisé ici
+		En effet, le déplacement de la liste implique uniquement la récupération du pointeur vers la racine, et pas le déplacement du contenu
+	*/
 }
 
 TEST_CASE("operator=", "[List]") {
